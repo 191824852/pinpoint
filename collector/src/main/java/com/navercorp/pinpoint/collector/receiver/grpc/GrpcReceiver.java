@@ -24,6 +24,7 @@ import com.navercorp.pinpoint.grpc.server.ServerFactory;
 import com.navercorp.pinpoint.grpc.server.ServerOption;
 import com.navercorp.pinpoint.grpc.server.TransportMetadataFactory;
 import com.navercorp.pinpoint.grpc.server.TransportMetadataServerInterceptor;
+
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerInterceptor;
@@ -58,7 +59,10 @@ public class GrpcReceiver implements InitializingBean, DisposableBean, BeanNameA
     private List<Object> serviceList = new ArrayList<>();
 
     private AddressFilter addressFilter;
-    private ServerTransportFilter lifecycleTransportFilter;
+
+    private List<ServerInterceptor> serverInterceptorList;
+    private List<ServerTransportFilter> transportFilterList;
+
     private ServerOption serverOption;
 
     private Server server;
@@ -81,14 +85,25 @@ public class GrpcReceiver implements InitializingBean, DisposableBean, BeanNameA
         this.serverFactory.addTransportFilter(permissionServerTransportFilter);
 
         TransportMetadataFactory transportMetadataFactory = new TransportMetadataFactory(beanName);
+        // Mandatory interceptor
         final ServerTransportFilter metadataTransportFilter = new MetadataServerTransportFilter(transportMetadataFactory);
         this.serverFactory.addTransportFilter(metadataTransportFilter);
 
-        if (lifecycleTransportFilter != null) {
-            this.serverFactory.addTransportFilter(lifecycleTransportFilter);
+        if (CollectionUtils.hasLength(transportFilterList)) {
+            for (ServerTransportFilter transportFilter : transportFilterList) {
+                this.serverFactory.addTransportFilter(transportFilter);
+            }
         }
+
+        // Mandatory interceptor
         ServerInterceptor transportMetadataServerInterceptor = new TransportMetadataServerInterceptor();
         this.serverFactory.addInterceptor(transportMetadataServerInterceptor);
+
+        if (CollectionUtils.hasLength(serverInterceptorList)) {
+            for (ServerInterceptor serverInterceptor : serverInterceptorList) {
+                this.serverFactory.addInterceptor(serverInterceptor);
+            }
+        }
 
         // Add service
         for (Object service : serviceList) {
@@ -179,7 +194,12 @@ public class GrpcReceiver implements InitializingBean, DisposableBean, BeanNameA
         this.serviceList = serviceList;
     }
 
-    public void setLifecycleTransportFilter(ServerTransportFilter lifecycleTransportFilter) {
-        this.lifecycleTransportFilter = lifecycleTransportFilter;
+    public void setTransportFilterList(List<ServerTransportFilter> transportFilterList) {
+        this.transportFilterList = transportFilterList;
     }
+
+    public void setServerInterceptorList(List<ServerInterceptor> serverInterceptorList) {
+        this.serverInterceptorList = serverInterceptorList;
+    }
+
 }
